@@ -1,0 +1,1 @@
+{"name":"sun-midnight-ordering","version":"1.0.0","private":true,"type":"commonjs","scripts":{"start":"node server.js","build":"node scripts/prepare-cloud.js","test":"node --test"},"dependencies":{"qrcode":"^1.5.4"}}
