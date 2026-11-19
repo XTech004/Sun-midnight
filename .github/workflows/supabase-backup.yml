@@ -1,0 +1,59 @@
+name: Encrypted Supabase backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 19:17 UTC is 02:17 the next day in Thailand.
+    - cron: '17 19 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check private repository and secrets
+        env:
+          IS_PRIVATE: ${{ github.event.repository.private }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -eu
+          test "$IS_PRIVATE" = "true" || { echo 'A private repository is required.'; exit 1; }
+          test -n "$SUPABASE_DB_URL" || { echo 'Missing SUPABASE_DB_URL secret.'; exit 1; }
+          test -n "$BACKUP_PASSPHRASE" || { echo 'Missing BACKUP_PASSPHRASE secret.'; exit 1; }
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump and encrypt database
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/supabase-backup" "$RUNNER_TEMP/encrypted-backup"
+          cd "$RUNNER_TEMP/supabase-backup"
+          supabase db dump --remote="$SUPABASE_DB_URL" -f roles.sql --role-only
+          supabase db dump --remote="$SUPABASE_DB_URL" -f schema.sql
+          supabase db dump --remote="$SUPABASE_DB_URL" -f data.sql --data-only --use-copy -x 'storage.buckets_vectors' -x 'storage.vector_indexes'
+          tar -czf - roles.sql schema.sql data.sql | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 --symmetric --cipher-algo AES256 --output "$RUNNER_TEMP/encrypted-backup/supabase-backup.tar.gz.gpg" 3<<<"$BACKUP_PASSPHRASE"
+          test -s "$RUNNER_TEMP/encrypted-backup/supabase-backup.tar.gz.gpg"
+
+      - name: Save encrypted backup for 7 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/encrypted-backup/supabase-backup.tar.gz.gpg
+          retention-days: 7
+          if-no-files-found: error
