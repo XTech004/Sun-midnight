@@ -1,13 +1,14 @@
 const fs = require('node:fs');
 fs.mkdirSync('cloud', {recursive:true});
-for (const name of ['style.css','supabase-api.js','supabase-config.js']) fs.copyFileSync('public/'+name,'cloud/'+name);
+for (const name of ['style.css','live.js','supabase-api.js','supabase-config.js']) fs.copyFileSync('public/'+name,'cloud/'+name);
+fs.cpSync('public/images','cloud/images',{recursive:true});
 if (process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY) {
   const url = new URL(process.env.SUPABASE_URL);
   if (url.protocol !== 'https:') throw Error('SUPABASE_URL must use HTTPS');
   fs.writeFileSync('cloud/supabase-config.js', `window.SUN_CONFIG = ${JSON.stringify({url:url.origin,publishableKey:process.env.SUPABASE_PUBLISHABLE_KEY})};\n`);
 }
 let html=fs.readFileSync('public/index.html','utf8');
-html=html.replace('<script src="/app.js"></script>','<script src="/supabase-config.js"></script><script src="/supabase-api.js"></script><script src="/app.js"></script>');
+html=html.replace('<script src="/live.js"></script>','<script src="/supabase-config.js"></script><script src="/supabase-api.js"></script><script src="/live.js"></script>');
 fs.writeFileSync('cloud/index.html',html);
 let js=fs.readFileSync('public/app.js','utf8');
 js=js.replace(/async function api\(path,data\)\{.*?\}\n/, '');
