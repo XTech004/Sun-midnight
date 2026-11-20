@@ -30,6 +30,9 @@ async function api(path, data) {
   if (path === 'orders') return rpc('staff_orders');
   if (path === 'status') {const result=await rpc('update_order_status',{p_id:data.id,p_status:data.status});window.sunLive?.notify();return result;}
   if (path === 'paid') {const result=await rpc('mark_order_paid',{p_id:data.id});window.sunLive?.notify();return result;}
+  if (path === 'request-payment') {const result=await rpc('request_payment',{p_table:data.table});window.sunLive?.notify();return result;}
+  if (path === 'payment-requests') return rpc('staff_payment_requests');
+  if (path === 'resolve-payment-request') {const result=await rpc('resolve_payment_request',{p_id:data.id});window.sunLive?.notify();return result;}
   if (path === 'menu' && data) {const result=await rpc('manage_menu',{p_id:data.id||null,p_name:data.name||null,p_price:data.price??null});window.sunLive?.notify();return result;}
   if (path.startsWith('qr?')) {const r=await fetch('/.netlify/functions/qr?'+path.slice(3));const v=await r.json();if(!r.ok)throw Error(v.error);return v;}
   throw Error('ไม่พบคำสั่ง');
