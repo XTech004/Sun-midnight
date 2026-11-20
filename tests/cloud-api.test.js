@@ -32,3 +32,15 @@ test('authenticated user without staff role cannot use staff interface',async()=
   await assert.rejects(vm.runInContext("api('login',{email:'x',password:'y'})",c.context));
   assert.equal(c.values.has('sunAccessToken'),false);
 });
+
+test('cashier attaches and retrieves a slip through authenticated RPCs',async()=>{
+  const c=makeClient([{body:{access_token:'token'}},{body:'cashier'},{body:null},{body:'image-data'}]);
+  await vm.runInContext("api('login',{email:'cashier@example.test',password:'example'})",c.context);
+  await vm.runInContext("api('paid-with-slip',{id:9,image:'image-data'})",c.context);
+  const image=await vm.runInContext("api('payment-slip',{id:9})",c.context);
+  assert.equal(image,'image-data');
+  assert.match(c.calls[2].url,/\/rpc\/mark_order_paid_with_slip$/);
+  assert.deepEqual(JSON.parse(c.calls[2].opts.body),{p_id:9,p_image:'image-data'});
+  assert.equal(c.calls[3].opts.headers.Authorization,'Bearer token');
+  assert.match(c.calls[3].url,/\/rpc\/get_payment_slip$/);
+});
