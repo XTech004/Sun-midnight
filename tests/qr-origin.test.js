@@ -1,0 +1,5 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');
+function handler(){const context=vm.createContext({exports:{},require:()=>({toDataURL:async url=>url}),process:{env:{URL:'https://sun-midnight.netlify.app'}},URL,JSON,String});vm.runInContext(fs.readFileSync('netlify/functions/qr.js','utf8'),context);return context.exports.handler}
+test('QR preserves the trusted preview and requested table',async()=>{const result=await handler()({queryStringParameters:{table:'2',origin:'https://deploy-preview-6--sun-midnight.netlify.app'}});assert.equal(result.statusCode,200);assert.equal(JSON.parse(result.body).data,'https://deploy-preview-6--sun-midnight.netlify.app/?table=2')});
+test('QR rejects unrelated origins',async()=>{const result=await handler()({queryStringParameters:{table:'2',origin:'https://evil.example'}});assert.equal(result.statusCode,400)});
+test('QR falls back to the configured production URL',async()=>{const result=await handler()({queryStringParameters:{table:'2'}});assert.equal(JSON.parse(result.body).data,'https://sun-midnight.netlify.app/?table=2')});
