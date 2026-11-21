@@ -35,8 +35,9 @@ function customer(){document.querySelector('#table-label').textContent=tableNo?'
   const count=Object.values(cart).reduce((sum,qty)=>sum+qty,0);
   app.innerHTML=`<div id="customer-view">${customerPage==='menu'?`<div class="cart-summary"><span>เลือกแล้ว <strong>${count} ชิ้น</strong></span><button type="button" class="summary-button" onclick="openSummary()">สรุปคำสั่งซื้อ</button></div><section><h2>เมนูอาหาร</h2><p class="muted">เลือกอาหารที่ต้องการได้เลย</p>${cards||'ยังไม่มีเมนูพร้อมขาย'}</section>`:`<section class="panel summary-page" id="cart-details"><button type="button" class="back-menu" onclick="backToMenu()">← กลับไปเลือกอาหาร</button><h2>รายการของคุณ</h2>${selected||'<p class="muted">ยังไม่มีรายการอาหาร</p>'}${tableNo?'':'<p class="muted small">กรุณาสแกน QR ประจำโต๊ะเพื่อเริ่มสั่งอาหาร</p>'}<label for="customer">ชื่อผู้สั่ง</label><input id="customer" maxlength="80" autocomplete="name" value="${esc(customerName)}" placeholder="กรุณากรอกชื่อ"><button id="submit-order" onclick="submitOrder()" ${tableNo?'':'disabled'}>ยืนยันส่งออเดอร์</button><p><button class="call-payment" onclick="requestPayment()" ${tableNo?'':'disabled'}>เรียกพนักงานเก็บเงิน</button></p></section>`}</div>`;
 }
-window.change=(id,n)=>{preserveForm();const before=cart[id]||0;cart[id]=Math.max(0,Math.min(99,before+n));if(!cart[id])delete itemOptions[id];customer();if(n>0&&cart[id]>before){const item=menu.find(m=>m.id===id);msg('เพิ่ม '+(item?.name||'สินค้า')+' ลงรายการแล้ว',true)}};
+window.change=(id,n)=>{if(submittingOrder){msg('กำลังส่งออเดอร์ กรุณารอสักครู่',true);return}preserveForm();const before=cart[id]||0;cart[id]=Math.max(0,Math.min(99,before+n));if(!cart[id])delete itemOptions[id];customer();if(n>0&&cart[id]>before){const item=menu.find(m=>m.id===id);msg('เพิ่ม '+(item?.name||'สินค้า')+' ลงรายการแล้ว',true)}};
 window.openItem=id=>{
+  if(submittingOrder){msg('กำลังส่งออเดอร์ กรุณารอสักครู่',true);return}
   const item=menu.find(m=>m.id===id&&m.available);if(!item)return;
   preserveForm();const dialog=document.querySelector('#item-dialog');const current=itemOptions[id]||{};
   const options=(values,selected)=>values.map(value=>`<option value="${esc(value)}" ${value===(selected||'')?'selected':''}>${esc(value||'ไม่ระบุ')}</option>`).join('');
@@ -54,7 +55,7 @@ window.confirmItem=id=>{
   if(cart[id]&&((previous.spice||'')!==spice||(previous.taste||'')!==taste)){error.textContent='เมนูเดียวกันใช้รายละเอียดร่วมกัน กรุณาแก้รสชาติในรายการเดิมก่อนเพิ่ม';return}
   itemOptions[id]={spice,taste};window.closeItem();window.change(id,quantity);
 };
-window.setOption=(id,key,value)=>{if(!['spice','taste'].includes(key))return;itemOptions[id]??={};itemOptions[id][key]=value};
+window.setOption=(id,key,value)=>{if(submittingOrder){msg('กำลังส่งออเดอร์ กรุณารอสักครู่',true);customer();return}if(!['spice','taste'].includes(key))return;itemOptions[id]??={};itemOptions[id][key]=value};
 let requestingPayment=false;
 window.requestPayment=()=>run(async()=>{if(!tableNo)throw Error('กรุณาสแกน QR ประจำโต๊ะ');if(requestingPayment)return;requestingPayment=true;try{const result=await api('request-payment',{table:tableNo});if(result==='no_unpaid_orders')throw Error('ยังไม่พบออเดอร์ที่ต้องชำระสำหรับโต๊ะนี้');msg('เรียกพนักงานเก็บเงินแล้ว กรุณารอสักครู่',true)}finally{requestingPayment=false}});
 window.resolvePaymentRequest=id=>run(async()=>{await api('resolve-payment-request',{id});await refresh();msg('ปิดคำขอเรียกเก็บเงินแล้ว')});
